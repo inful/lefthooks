@@ -33,11 +33,44 @@ a Go repo with sqlc.yaml additionally gets the sqlc drift check.
 | `go-test` | pre-commit | `*.go` staged, `go` installed, `go.mod` present | Run short race tests |
 | `markdownlint` | pre-commit | `*.md` staged, `markdownlint` installed | Lint markdown |
 | `sqlc-check` | pre-commit | `*.sql` staged, `sqlc` installed, `sqlc.yaml` present | Verify generated code is up to date |
+| `docbuilder-lint` | pre-commit | `*.md` / image assets staged, docbuilder binary on PATH OR local `cmd/docbuilder` fallback in `go.mod` | Lint staged documentation tree via `docbuilder lint` |
 | `check-conventional-commit.sh` | commit-msg | always | Validate Conventional Commits format |
 | `go-test-race` | pre-push | `go` installed, `go.mod` present | Run full race tests |
 | `golangci-lint` | pre-push | `go` installed, `go.mod` present | Lint with longer timeout |
 
 ## Adding a consumer repo
+
+### Quick path — `bin/install-into.sh`
+
+```sh
+# From this repo's root
+bin/install-into.sh /path/to/infra/repo
+```
+
+The script:
+1. Verifies the consumer is a git repo.
+2. Copies [`templates/lefthook.yml`](./templates/lefthook.yml) into the
+   consumer if `lefthook.yml` is missing.
+3. Warns (does not fail) if the existing `lefthook.yml` doesn't
+   reference `github.com/inful/lefthooks`.
+4. Runs `lefthook install` in the consumer to wire up git hooks.
+5. Prints a summary.
+
+Idempotent. Safe to run on every fresh clone.
+
+### Bulk path — `make install-all`
+
+```sh
+make install-all   # loops over the 6 known consumers
+```
+
+Or override the list:
+
+```sh
+make install-all CONSUMERS='/path/to/a /path/to/b'
+```
+
+### Manual path
 
 Replace the consumer repo's `lefthook.yml` with:
 
@@ -51,7 +84,7 @@ min_version: 2.1.0
 
 remotes:
   - git_url: git@github.com:inful/lefthooks.git
-    ref: v0.1.0
+    ref: v0.2.0
     configs:
       - lefthook.yml
 ```
@@ -67,7 +100,7 @@ into the consumer's effective config, and runs only the hooks that apply.
 
 ### Pinning the version
 
-Tag a release of this repo, e.g. `v0.1.0`, and have consumer repos pin
+Tag a release of this repo, e.g. `v0.2.0`, and have consumer repos pin
 their `remotes[].ref` to that tag. Bump the pin when you want consumers
 to pick up a new shared version. This keeps a known-good config frozen
 per-consumer and lets you stage rollouts repo-by-repo.
@@ -108,10 +141,17 @@ fail the commit.
 ```
 .
 ├── README.md                                  # this file
+├── Makefile                                   # test / validate / install-into / install-all
 ├── lefthook.yml                               # the master hook set
-└── .lefthook/
-    └── commit-msg/
-        └── check-conventional-commit.sh       # canonical commit-msg validator
+├── templates/
+│   └── lefthook.yml                           # canonical consumer config
+├── bin/
+│   └── install-into.sh                        # one-shot consumer bootstrap
+├── .lefthook/
+│   └── commit-msg/
+│       └── check-conventional-commit.sh       # canonical commit-msg validator
+└── tests/
+    └── check-conventional-commit_test.sh      # 16-case test suite
 ```
 
 The `.lefthook/` directory is lefthook's default `source_dir`. The
