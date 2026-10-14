@@ -1,0 +1,46 @@
+# .github/workflows/ci.yml — CI for the central config repo itself.
+#
+# Verifies on every push and PR to main:
+#   - make test     → runs the 16-case commit-msg test suite
+#   - make validate → lefthook validate the central lefthook.yml
+#   - make dump     → lefthook dump the merged config (smoke-checks
+#                     that the config parses and emits something)
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: test + validate + dump
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install lefthook
+        # Pinned to a specific release for reproducibility. Bump
+        # intentionally when you want to verify against a newer
+        # lefthook binary.
+        run: go install github.com/evilmartians/lefthook/v2@v2.2.2
+
+      - name: Run test suite
+        run: make test
+
+      - name: Validate lefthook.yml
+        run: make validate
+
+      - name: Dump merged config
+        # make dump prints the merged config to stdout; we just want a
+        # non-zero exit if parsing fails. Suppress output to avoid
+        # spamming the log with the full 200-line config dump.
+        run: make dump > /dev/null
