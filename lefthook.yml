@@ -22,6 +22,10 @@
 min_version: 2.1.0
 source_dir: .lefthook
 
+# Use the standard "**" semantics (zero or more directories), so a glob
+# like "**/*" matches files at any depth, not just nested ones.
+glob_matcher: doublestar
+
 # ────────────────────────────────────────────────────────────────────────────
 # pre-commit: cheap, fast, parallel. Per-staged-file checks.
 # ────────────────────────────────────────────────────────────────────────────
@@ -132,6 +136,131 @@ pre-commit:
         # is available, so non-docbuilder consumers don't see noise on
         # every commit.
         - run: "! command -v docbuilder && ! ([ -f go.mod ] && grep -q docbuilder go.mod)"
+
+    # ─── typos-cli ────────────────────────────────────────────────────────
+    # Spell-checks staged content with crate-ci/typos. Tool auto-detects
+    # text vs binary; honors _typos.toml / typos.toml if present.
+
+    typos:
+      glob: "**/*"
+      run: typos {staged_files}
+      skip:
+        - run: "! command -v typos"
+
+    # ─── gitleaks ─────────────────────────────────────────────────────────
+    # Secret detection on staged content. Honors .gitleaks.toml if present;
+    # runs with default rules otherwise.
+
+    gitleaks:
+      glob: "**/*"
+      run: gitleaks protect --staged --redact
+      skip:
+        - run: "! command -v gitleaks"
+
+    # ─── shellcheck ───────────────────────────────────────────────────────
+    # Lints staged shell scripts.
+
+    shellcheck:
+      glob:
+        - "*.sh"
+        - "*.bash"
+        - "*.zsh"
+        - "*.ksh"
+      run: shellcheck {staged_files}
+      skip:
+        - run: "! command -v shellcheck"
+
+    # ─── actionlint ───────────────────────────────────────────────────────
+    # Validates GitHub Actions workflows. Only fires when .github/workflows/
+    # exists in the consumer.
+
+    actionlint:
+      glob:
+        - ".github/workflows/*.yml"
+        - ".github/workflows/*.yaml"
+      run: actionlint
+      skip:
+        - run: "! command -v actionlint"
+        - run: "test ! -d .github/workflows"
+
+    # ─── hadolint ─────────────────────────────────────────────────────────
+    # Lints staged Dockerfiles.
+
+    hadolint:
+      glob:
+        - "Dockerfile"
+        - "Dockerfile.*"
+        - "*.dockerfile"
+        - "*.Dockerfile"
+      run: hadolint {staged_files}
+      skip:
+        - run: "! command -v hadolint"
+
+    # ─── Inline: merge-conflict markers ───────────────────────────────────
+    # Blocks commits with unresolved <<<<<<< / ======= / >>>>>>> markers.
+    # No external tool needed.
+
+    check-merge-conflicts:
+      glob: "**/*"
+      run: |
+        matches=$(grep -lE '^(<<<<<<<|=======$|>>>>>>>)' {staged_files} 2>/dev/null || true)
+        if [ -n "$matches" ]; then
+          echo "ERROR: staged files contain unresolved merge conflict markers:" >&2
+          echo "$matches" >&2
+          exit 1
+        fi
+
+    # ─── Inline: trailing whitespace ───────────────────────────────────────
+    # Blocks commits with lines ending in spaces or tabs. Skip binary-ish
+    # extensions (image, video, audio, archive) since trailing bytes there
+    # are legitimate.
+
+    check-trailing-whitespace:
+      glob: "**/*"
+      run: |
+        matches=$(grep -lE '[[:space:]]+$' \
+          --include='*.go' --include='*.md' --include='*.txt' \
+          --include='*.yml' --include='*.yaml' --include='*.json' \
+          --include='*.toml' --include='*.sh' --include='*.bash' \
+          --include='*.py' --include='*.rs' --include='*.ts' \
+          --include='*.js' --include='*.tsx' --include='*.jsx' \
+          --include='*.html' --include='*.css' --include='Makefile' \
+          --include='*.mk' --include='Dockerfile*' --include='*.cfg' \
+          --include='*.ini' \
+          {staged_files} 2>/dev/null || true)
+        if [ -n "$matches" ]; then
+          echo "ERROR: trailing whitespace in:" >&2
+          echo "$matches" >&2
+          echo "Fix with: sed -i '' 's/[[:space:]]*\$//' <file>" >&2
+          exit 1
+        fi
+
+    # ─── Inline: large files ──────────────────────────────────────────────
+    # Blocks commits with files larger than 5 MB. Catches accidental
+    # binary drops (logs, dataset samples, build artifacts).
+
+    check-large-files:
+      glob: "**/*"
+      run: |
+        threshold=$((5 * 1024 * 1024))   # 5 MB
+        bad=$(mktemp)
+        # `git diff --name-only` is one file per line (newlines in filenames
+        # are pathological and rare; rare enough that a line-based scan is
+        # good enough for the common case).
+        git diff --cached --name-only | while IFS= read -r f; do
+          [ -f "$f" ] || continue
+          size=$(wc -c < "$f")
+          if [ "$size" -gt "$threshold" ]; then
+            mb=$(( size / 1024 / 1024 ))
+            echo "ERROR: $f is ${mb} MB — exceeds 5 MB limit. Use git-lfs or store externally." >&2
+            echo "$f" >> "$bad"
+          fi
+        done
+        if [ -s "$bad" ]; then
+          rm -f "$bad"
+          exit 1
+        fi
+        rm -f "$bad"
 
 # ────────────────────────────────────────────────────────────────────────────
 # commit-msg: validate the commit message format.
