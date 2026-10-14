@@ -1,0 +1,99 @@
+# _typos.toml — default typos-cli configuration for inful/* consumers.
+# https://github.com/crate-ci/typos
+#
+# Drop this file into a consumer repo (as _typos.toml or typos.toml) and
+# install typos-cli to opt into the spell-check pre-commit hook.
+#
+# Defaults below exclude paths that produce noise or contain non-natural-
+# language content. Tighten extend-words / extend-identifiers as needed
+# per-repo.
+
+[files]
+# Paths to skip entirely. Patterns are matched against filenames.
+extend-exclude = [
+  "vendor/",
+  "node_modules/",
+  ".git/",
+  ".terraform/",
+  ".venv/",
+  "venv/",
+  "dist/",
+  "build/",
+  "target/",
+  # Lockfiles and generated artifacts contain hashes that look like typos.
+  "*.lock",
+  "*.sum",
+  "go.sum",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "Cargo.lock",
+  "poetry.lock",
+  "Pipfile.lock",
+  # Binary assets — typos can't usefully spell-check them.
+  "*.png",
+  "*.jpg",
+  "*.jpeg",
+  "*.gif",
+  "*.svg",
+  "*.ico",
+  "*.webp",
+  "*.bmp",
+  "*.pdf",
+  "*.zip",
+  "*.tar",
+  "*.gz",
+  "*.tgz",
+  # Minified content.
+  "*.min.js",
+  "*.min.css",
+  # Lefthook-generated files.
+  ".lefthook/",
+  ".lefthook-local/",
+]
+
+[default]
+# Locale for docstring/collation; "en" covers our code, docs, and commit
+# messages.
+locale = "en"
+
+# Extend the built-in dictionary with project-specific technical terms.
+# These are flagged by default but used legitimately in our stack.
+extend-words = [
+  "lefthook",     # the linter itself
+  "docbuilder",   # the linter for documentation content
+  "goimports",    # Go import formatter
+  "golangci",     # golangci-lint
+  "inful",        # the org name
+  "Mise",         # mise version manager
+]
+
+# Identifiers in code that typos should ignore.
+extend-identifiers = [
+  "Hash",
+  "Stdin",
+  "Stdout",
+  "Stderr",
+  "Wwwn",
+  "Unmarshal",
+  "Marshal",
+  "Unquote",
+  "HttpClient",
+]
+
+# Per-file-type settings.
+[[default.files]]
+extension = "go"
+# Don't flag CamelCase identifiers in Go as typos — they're often
+# abbreviations (Hash, Unmarshal, etc.) handled by extend-identifiers.
+
+[[default.files]]
+extension = "md"
+# Allow leading-tilde lines (footnotes), ATX-style headers without spaces,
+# and other Markdown-specific constructs.
+
+[[default.files]]
+extension = "yml"
+extension = "yaml"
+# YAML often contains identifiers, paths, and structured data. Only check
+# prose-style values, not keys.

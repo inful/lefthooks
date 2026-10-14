@@ -1,0 +1,89 @@
+# .gitleaks.toml — default gitleaks configuration for inful/* consumers.
+# https://github.com/gitleaks/gitleaks
+#
+# Drop this file into a consumer repo (as .gitleaks.toml) and install
+# gitleaks to opt into the secret-detection pre-commit hook.
+#
+# This config layers on top of gitleaks' built-in default ruleset
+# (https://github.com/gitleaks/gitleaks/tree/master/config). It adds
+# project-specific allowlists for false-positive hotspots in our repos.
+# To tighten detection, define custom rules under [[rules]] below.
+
+title = "inful default gitleaks config"
+
+# Global allowlist — applied to every rule. Patterns are Go regex matched
+# against file paths (use double-backslash for path separators).
+[allowlist]
+description = "Global allowlist for known false positives"
+paths = [
+  # Vendored / generated content
+  '''vendor/''',
+  '''node_modules/''',
+  '''.terraform/''',
+  '''dist/''',
+  '''build/''',
+  '''target/''',
+  '''.venv/''',
+  '''venv/''',
+
+  # Test fixtures (often contain deliberately-fake secrets)
+  '''_test\.go$''',
+  '''_test\.py$''',
+  '''testdata/''',
+  '''fixtures/''',
+
+  # Lockfiles
+  '''\.lock$''',
+  '''go\.sum$''',
+
+  # Documentation / examples
+  '''README\.md$''',
+  '''CHANGELOG\.md$''',
+  '''CONTRIBUTING\.md$''',
+
+  # Lefthook bookkeeping
+  '''\.lefthook/''',
+  '''\.lefthook-local/''',
+]
+
+# Common false-positive patterns we see across inful/* repos. Each entry
+# is a regex matched against the secret string itself.
+regexes = [
+  # GitHub-style test fixtures like ghp_aaaa... or sk_test_...
+  '''(?i)(example|test|fake|sample|placeholder|dummy)''',
+  # Localhost / loopback addresses used in examples
+  '''127\.0\.0\.1''',
+  '''localhost''',
+  '''0\.0\.0\.0''',
+]
+
+# Stop words — secrets containing these are treated as documentation
+# examples rather than real secrets.
+stopwords = [
+  "example",
+  "test",
+  "fake",
+  "sample",
+  "placeholder",
+  "dummy",
+  "your-token-here",
+  "replace-me",
+]
+
+# ─────────────────────────────────────────────────────────────────
+# Custom rules below. The built-in ruleset covers the common cases
+# (AWS, GitHub, GitLab, Stripe, OpenAI, etc.). Add repo-specific
+# patterns only if you have a service the defaults don't cover.
+# ─────────────────────────────────────────────────────────────────
+#
+# Example shape (commented out — uncomment and customize per-repo):
+#
+# [[rules]]
+# id = "custom-internal-api-key"
+# description = "Internal API key format (acme_v1_xxx)"
+# regex = '''acme_v1_[A-Za-z0-9]{32,}'''
+# tags = ["api-key", "internal"]
+# entropy = 3.5
+#
+#   [rules.allowlist]
+#   paths = ['''fixtures/''']

@@ -136,6 +136,73 @@ stay local.
 Missing tools cause their respective hooks to skip cleanly, never to
 fail the commit.
 
+## Installing the optional tools
+
+Most hooks self-skip when the corresponding tool is not on PATH, so a
+consumer with only `lefthook` installed still gets the Go/format/test/
+commit-msg/pre-push coverage. To enable the optional hooks below,
+install the relevant tool. Recommendations for **macOS** with Homebrew
+(Linux/Windows: substitute your package manager; all tools have
+pre-built binaries):
+
+```sh
+# Core — needed for every consumer
+brew install lefthook go
+
+# Per-language / per-project hooks
+brew install golangci-lint        # golangci-lint hook (Go)
+brew install markdownlint-cli     # markdownlint hook
+brew install sqlc                 # sqlc-check hook (when sqlc.yaml present)
+brew install shellcheck           # shellcheck hook (when *.sh staged)
+brew install hadolint             # hadolint hook (when Dockerfile staged)
+brew install actionlint           # actionlint hook (when .github/workflows/ exists)
+
+# Spell / secrets — both have low false-positive rates; recommended
+brew install typos-cli            # typos hook
+brew install gitleaks             # gitleaks hook
+```
+
+Or, for repo-pinned versions via [mise](https://mise.jdx.dev/) (so the
+whole team uses identical versions without coordinating):
+
+```sh
+# Add to the consumer's mise.toml (one-time)
+mise use lefthook@latest
+mise use go@latest
+mise use golangci-lint@latest
+mise use typos@latest
+mise use gitleaks@latest
+# ... etc.
+```
+
+### Tool install via cargo (Linux-friendly)
+
+```sh
+cargo install typos-cli         # the typo checker
+cargo install actionlint        # the GitHub Actions linter
+```
+
+### Tool install via go install
+
+```sh
+go install github.com/gitleaks/gitleaks/v8@latest
+go install github.com/rhysd/actionlint/cmd/actionlint@latest
+go install github.com/hadolint/hadolint@latest
+```
+
+### Self-gating semantics
+
+After running `lefthook install` on a consumer, every hook whose tool
+is on PATH fires; every hook without its tool skips cleanly. None of
+the hooks fail the commit for a missing tool — see each hook's `skip:`
+condition in `lefthook.yml` for the exact gating rules.
+
+For `typos` and `gitleaks` specifically, dropping the corresponding
+default config from this repo's `templates/` into the consumer's repo
+root (as `_typos.toml` / `.gitleaks.toml`) gives you tuned
+project-aware behavior. Without a config file, both tools run with
+their built-in defaults.
+
 ## Layout
 
 ```
@@ -144,7 +211,9 @@ fail the commit.
 ├── Makefile                                   # test / validate / install-into / install-all
 ├── lefthook.yml                               # the master hook set
 ├── templates/
-│   └── lefthook.yml                           # canonical consumer config
+│   ├── lefthook.yml                           # canonical consumer config
+│   ├── _typos.toml                            # default typos-cli config
+│   └── .gitleaks.toml                         # default gitleaks config
 ├── bin/
 │   └── install-into.sh                        # one-shot consumer bootstrap
 ├── .lefthook/
