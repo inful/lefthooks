@@ -83,7 +83,7 @@ Replace the consumer repo's `lefthook.yml` with:
 min_version: 2.1.0
 
 remotes:
-  - git_url: git@github.com:inful/lefthooks.git
+  - git_url: https://github.com/inful/lefthooks.git
     ref: v0.2.0
     configs:
       - lefthook.yml
@@ -226,11 +226,11 @@ This repo ships two GitHub Actions workflows under `.github/workflows/`:
   The `@vX.Y.Z` ref should match the `ref:` pin in the consumer's
   own `lefthook.yml`. Bump both in lockstep.
 
-  **Caveat**: `lefthook validate` against a consumer config requires
-  network access to clone the remote config from
-  `git@github.com:inful/lefthooks.git`. Public repos work with the
-  default `GITHUB_TOKEN` over HTTPS; private repos (the inful/*
-  case) need an SSH key added to the consumer's Actions secrets.
+  This repo is **public**, so `lefthook validate` (which clones the
+  remote config) works in CI without any extra auth — GitHub Actions'
+  default `GITHUB_TOKEN` reads public repos over HTTPS without
+  credentials. Consumer-side `git_url` in `lefthook.yml` is HTTPS for
+  the same reason.
 
 ## Layout
 

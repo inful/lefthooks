@@ -37,9 +37,8 @@ jobs:
       - name: Validate consumer config
         # `lefthook validate` reads the merged config (including the
         # remote import from inful/lefthooks) and exits non-zero on
-        # any YAML / schema error. Note: this requires the consumer's
-        # SSH key for github.com to be reachable; on public repos GitHub
-        # Actions' default GITHUB_TOKEN is enough over HTTPS, but
-        # inful/* is private, so consumers may need to add an SSH key
-        # to fetch the remote config.
+        # any YAML / schema error. The central repo is public, so the
+        # HTTPS clone that lefthook performs needs no extra auth —
+        # GitHub Actions' default GITHUB_TOKEN reads public repos
+        # unauthenticated.
         run: lefthook validate
