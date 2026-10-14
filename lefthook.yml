@@ -89,6 +89,50 @@ pre-commit:
       skip:
         - run: "! command -v sqlc"
 
+    # ─── DocBuilder content lint ───────────────────────────────────────────
+    # Lints staged documentation files (Markdown + image assets) using
+    # the docbuilder binary when available, falling back to a local
+    # `go run ./cmd/docbuilder` in dev mode. Silently skips on consumers
+    # where docbuilder isn't installed and no local fallback exists.
+
+    docbuilder-lint:
+      glob:
+        - "*.md"
+        - "*.markdown"
+        - "*.png"
+        - "*.jpg"
+        - "*.jpeg"
+        - "*.gif"
+        - "*.svg"
+      run: |
+        DOCBUILDER_CMD=""
+        if command -v docbuilder >/dev/null 2>&1; then
+          DOCBUILDER_CMD="docbuilder"
+        elif [ -f go.mod ] && grep -q "docbuilder" go.mod; then
+          DOCBUILDER_CMD="go run ./cmd/docbuilder"
+        else
+          echo "⚠️  docbuilder binary not found and no local cmd/docbuilder present — skipping documentation linting"
+          echo "   Install: go install git.home.luguber.info/inful/docbuilder/cmd/docbuilder@latest"
+          exit 0
+        fi
+
+        TEMP_DIR=$(mktemp -d)
+        trap 'rm -rf "${TEMP_DIR}"' EXIT
+
+        # Stage the to-be-committed versions of each file (preserving path
+        # structure) into a temp dir so docbuilder can lint them as a tree.
+        for f in {staged_files}; do
+          mkdir -p "${TEMP_DIR}/$(dirname "$f")"
+          git show ":$f" > "${TEMP_DIR}/$f"
+        done
+
+        "$DOCBUILDER_CMD" lint "${TEMP_DIR}" --quiet
+      skip:
+        # Skip silently when neither the binary nor a local cmd/docbuilder
+        # is available, so non-docbuilder consumers don't see noise on
+        # every commit.
+        - run: "! command -v docbuilder && ! ([ -f go.mod ] && grep -q docbuilder go.mod)"
+
 # ────────────────────────────────────────────────────────────────────────────
 # commit-msg: validate the commit message format.
 # Script lives at .lefthook/commit-msg/check-conventional-commit.sh and is

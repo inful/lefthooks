@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://lefthook.dev/schema.json
+#
+# ─── Canonical consumer lefthook.yml ───────────────────────────────────────
+# This is the template every github.com/inful/* repository uses.
+#
+# Two ways to consume this:
+#
+#   1. (Recommended) Use bin/install-into.sh from the central repo, which
+#      copies this file into a consumer repo and runs 'lefthook install'.
+#
+#   2. Manually copy this file to <consumer-repo>/lefthook.yml, then run
+#      'lefthook install' in the consumer.
+#
+# Pin `ref` below to a tag from github.com/inful/lefthooks to control
+# which version of the shared config the consumer sees.
+
+min_version: 2.1.0
+
+remotes:
+  - git_url: git@github.com:inful/lefthooks.git
+    ref: v0.2.0
+    configs:
+      - lefthook.yml
