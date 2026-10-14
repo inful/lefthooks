@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=https://lefthook.dev/schema.json
+#
+# Centralized lefthook configuration for github.com/inful/* repositories.
+# Source: https://github.com/inful/lefthooks
+#
+# ────────────────────────────────────────────────────────────────────────────
+# Design: every hook self-gates. A consumer's pre-commit runs only the hooks
+# whose preconditions match the staged files and project shape:
+#
+#   • `glob:`    auto-skip the command when no staged files match the pattern.
+#   • `skip:`    additional shell-conditional skips (tool missing, go.mod
+#                absent, sqlc.yaml absent, ...).
+#
+# Result: any consumer repo that imports this file via `remotes:` picks up
+# exactly the hooks that apply to it — Go projects get Go checks, projects
+# with .md files get markdownlint, projects with sqlc.yaml get the sqlc
+# drift check, and so on. No per-repo configuration needed.
+#
+# See README.md for the consumer wiring instructions.
+# ────────────────────────────────────────────────────────────────────────────
+
+min_version: 2.1.0
+source_dir: .lefthook
+
+# ────────────────────────────────────────────────────────────────────────────
+# pre-commit: cheap, fast, parallel. Per-staged-file checks.
+# ────────────────────────────────────────────────────────────────────────────
+pre-commit:
+  parallel: true
+  commands:
+    # ─── Go ───────────────────────────────────────────────────────────────
+    # Each runs only when *.go files are staged AND a go.mod exists AND the
+    # tool is on PATH.
+
+    gofmt:
+      glob: "*.go"
+      run: gofmt -l {staged_files} | (! grep .)
+      stage_fixed: true
+      skip:
+        - run: "! command -v gofmt"
+        - run: "test ! -f go.mod"
+
+    govet:
+      glob: "*.go"
+      run: go vet ./...
+      skip:
+        - run: "! command -v go"
+        - run: "test ! -f go.mod"
+
+    golangci-lint:
+      glob: "*.go"
+      run: golangci-lint run --timeout 5m ./...
+      skip:
+        - run: "! command -v golangci-lint"
+
+    go-test:
+      glob: "*.go"
+      run: go test -race -count=1 -short ./...
+      skip:
+        - run: "! command -v go"
+        - run: "test ! -f go.mod"
+
+    # ─── Markdown ─────────────────────────────────────────────────────────
+    # Runs only when *.md files are staged.
+
+    markdownlint:
+      glob: "*.md"
+      run: markdownlint {staged_files}
+      skip:
+        - run: "! command -v markdownlint"
+
+    # ─── SQL (sqlc) ───────────────────────────────────────────────────────
+    # Drift check only fires when both *.sql files are staged AND sqlc.yaml
+    # is present in the consumer repo.
+
+    sqlc-check:
+      glob: "*.sql"
+      run: |
+        if [ -f sqlc.yaml ]; then
+          sqlc generate
+          if ! git diff --exit-code -- . >/dev/null; then
+            echo "sqlc generated code is out of date — run 'sqlc generate' and commit the result." >&2
+            git diff --stat -- .
+            exit 1
+          fi
+        else
+          echo "sqlc.yaml not present — skipping"
+        fi
+      skip:
+        - run: "! command -v sqlc"
+
+# ────────────────────────────────────────────────────────────────────────────
+# commit-msg: validate the commit message format.
+# Script lives at .lefthook/commit-msg/check-conventional-commit.sh and is
+# resolved relative to this repo's root by lefthook.
+# ────────────────────────────────────────────────────────────────────────────
+commit-msg:
+  parallel: false
+  scripts:
+    "check-conventional-commit.sh":
+      runner: bash
+      args: "{0}"
+
+# ────────────────────────────────────────────────────────────────────────────
+# pre-push: full re-verification before code leaves the machine.
+# Gated on go.mod — runs only on Go projects.
+# ────────────────────────────────────────────────────────────────────────────
+pre-push:
+  parallel: false
+  commands:
+    go-test-race:
+      run: go test -race -count=1 ./...
+      skip:
+        - run: "! command -v go"
+        - run: "test ! -f go.mod"
+
+    golangci-lint:
+      run: |
+        if command -v golangci-lint >/dev/null 2>&1; then
+          golangci-lint run --timeout 10m ./...
+        else
+          echo "golangci-lint not installed; skipping (CI will catch issues)"
+        fi
+      skip:
+        - run: "! command -v go"
+        - run: "test ! -f go.mod"

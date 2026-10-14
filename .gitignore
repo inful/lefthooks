@@ -1,0 +1,7 @@
+# Lefthook's local-only override directory.
+# Repos that `remotes:`-import this config can drop `lefthook-local.yml`
+# here to override individual hooks; that file should not be committed.
+.lefthook-local/
+
+# lefthook install writes symlinks here.
+# Never the artifact itself (cross-machine); returned paths are server-local.
