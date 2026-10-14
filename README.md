@@ -203,6 +203,35 @@ root (as `_typos.toml` / `.gitleaks.toml`) gives you tuned
 project-aware behavior. Without a config file, both tools run with
 their built-in defaults.
 
+## CI
+
+This repo ships two GitHub Actions workflows under `.github/workflows/`:
+
+- **`ci.yml`** — runs on every push and PR to `main`. Installs
+  lefthook via `go install`, then runs `make test`, `make validate`,
+  and `make dump`. Catches regressions in the commit-msg script and
+  YAML / schema errors in `lefthook.yml`.
+
+- **`consumer-validate.yml`** — a **reusable workflow** (`workflow_call`
+  trigger). Installs lefthook and runs `lefthook validate` against
+  the calling repo's merged config. Consumer repos invoke it via:
+
+  ```yaml
+  # .github/workflows/lefthook-validate.yml in a consumer
+  jobs:
+    validate:
+      uses: inful/lefthooks/.github/workflows/consumer-validate.yml@vX.Y.Z
+  ```
+
+  The `@vX.Y.Z` ref should match the `ref:` pin in the consumer's
+  own `lefthook.yml`. Bump both in lockstep.
+
+  **Caveat**: `lefthook validate` against a consumer config requires
+  network access to clone the remote config from
+  `git@github.com:inful/lefthooks.git`. Public repos work with the
+  default `GITHUB_TOKEN` over HTTPS; private repos (the inful/*
+  case) need an SSH key added to the consumer's Actions secrets.
+
 ## Layout
 
 ```
@@ -210,6 +239,10 @@ their built-in defaults.
 ├── README.md                                  # this file
 ├── Makefile                                   # test / validate / install-into / install-all
 ├── lefthook.yml                               # the master hook set
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                             # validate + test + dump on every push/PR
+│       └── consumer-validate.yml              # reusable workflow for consumer CI
 ├── templates/
 │   ├── lefthook.yml                           # canonical consumer config
 │   ├── _typos.toml                            # default typos-cli config
