@@ -31,6 +31,7 @@ a Go repo with sqlc.yaml additionally gets the sqlc drift check.
 | `govet` | pre-commit | `*.go` staged, `go` installed, `go.mod` present | Run `go vet ./...` |
 | `golangci-lint` | pre-commit | `*.go` staged, `golangci-lint` installed | Run lint suite |
 | `go-test` | pre-commit | `*.go` staged, `go` installed, `go.mod` present | Run short race tests |
+| `govulncheck` | pre-commit | `**/*.go` staged, `govulncheck` installed, `go.mod` present | Scan source for known vulns in transitive deps (`-mode=source`) |
 | `markdownlint` | pre-commit | `*.md` staged, `markdownlint` installed | Lint markdown |
 | `sqlc-check` | pre-commit | `*.sql` staged, `sqlc` installed, `sqlc.yaml` present | Verify generated code is up to date |
 | `docbuilder-lint` | pre-commit | `*.md` / image assets staged, docbuilder binary on PATH OR local `cmd/docbuilder` fallback in `go.mod` | Lint staged documentation tree via `docbuilder lint` |
@@ -162,6 +163,14 @@ brew install typos-cli            # typos hook
 brew install gitleaks             # gitleaks hook
 ```
 
+`govulncheck` is the Go-team vulnerability scanner for transitive
+dependencies (https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck). It
+has no Homebrew formula; install via Go itself:
+
+```sh
+go install golang.org/x/vuln/cmd/govulncheck@latest
+```
+
 Or, for repo-pinned versions via [mise](https://mise.jdx.dev/) (so the
 whole team uses identical versions without coordinating):
 
@@ -170,6 +179,7 @@ whole team uses identical versions without coordinating):
 mise use lefthook@latest
 mise use go@latest
 mise use golangci-lint@latest
+mise use govulncheck@latest
 mise use typos@latest
 mise use gitleaks@latest
 # ... etc.
@@ -185,6 +195,7 @@ cargo install actionlint        # the GitHub Actions linter
 ### Tool install via go install
 
 ```sh
+go install golang.org/x/vuln/cmd/govulncheck@latest  # Go dependency vuln scan
 go install github.com/gitleaks/gitleaks/v8@latest
 go install github.com/rhysd/actionlint/cmd/actionlint@latest
 go install github.com/hadolint/hadolint@latest

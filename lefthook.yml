@@ -64,6 +64,25 @@ pre-commit:
         - run: "! command -v go"
         - run: "test ! -f go.mod"
 
+    # ─── Go: govulncheck ──────────────────────────────────────────────────
+    # Scans Go source for known vulnerabilities in transitive
+    # dependencies. Source: https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck
+    # Install: go install golang.org/x/vuln/cmd/govulncheck@latest
+    #
+    # -mode=source is faster than full mode (no binary compilation)
+    # and is the recommended mode for pre-commit. It reports only
+    # vulnerabilities that are actually reachable from the source
+    # code at the call-site level — false positives from a pure
+    # dependency list scan are filtered out. CI may want to run
+    # full mode separately for a deeper scan.
+
+    govulncheck:
+      glob: "**/*.go"
+      run: govulncheck -mode=source ./...
+      skip:
+        - run: "! command -v govulncheck"
+        - run: "test ! -f go.mod"
+
     # ─── Markdown ─────────────────────────────────────────────────────────
     # Runs only when *.md files are staged.
 
